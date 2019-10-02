@@ -1,4 +1,8 @@
 #define BLYNK_PRINT Serial
+#define REDPIN 6
+#define GREENPIN 3
+#define BLUEPIN 5
+#define FADESPEED 5     // чем выше число, тем медленнее будет fade-эффект
 #include <MHZ19.h>
 #include <ESP8266_Lib.h>
 #include <BlynkSimpleShieldEsp8266.h>
@@ -66,13 +70,15 @@ const char *monthName[12] = {
  //tmElements_t tm; // time object
 // File myFile;
 
+double eval = 0;
 //BlynkTimer timer;
 BlynkTimer lux_timer;
 BlynkTimer co2_timer;
 BlynkTimer temp_timer;
-BlynkTimer dust_timer;
+//BlynkTimer dust_timer;
 BlynkTimer hum_timer;
 BlynkTimer pres_timer;
+BlynkTimer eval_calc;
 /*void form_stamp(int value, char* name)
 {
   sprintf(data, "%s%d %s ", data, value, name);
@@ -84,6 +90,7 @@ void getTemp()
   Serial.print("Temperature = ");
 	Serial.print(t);
 	Serial.println("*C");
+  eval += t;
    //sprintf(data + strlen(data), "t = %2d C ", t);
    //Serial.println(data);
 }
@@ -95,6 +102,7 @@ void getHum()
   Serial.print("Humidity = ");
 	Serial.print(h);
 	Serial.println("%");
+  eval += h;
 }
 
 void getPres()
@@ -118,6 +126,7 @@ void getCO2()
         Blynk.virtualWrite(V1, CO2);
         //form_stamp(CO2, name_co2);                               
         getDataTimer = millis();
+        eval += CO2;
     }
    
    
@@ -146,6 +155,7 @@ void getLux()
     Serial.print(lux,DEC);     
     Serial.println("[lx]"); 
     Blynk.virtualWrite(V2, lux);
+    eval += lux;
   }
   Wire.endTransmission();  
 }
@@ -159,7 +169,7 @@ void start_bme280() // Temperature, Humidity, Pressure and Altitude sensor
 }
 
 
-long getPM(int DUST_SENSOR_DIGITAL_PIN)// this function returns the concentration of particles
+/*long getPM(int DUST_SENSOR_DIGITAL_PIN)// this function returns the concentration of particles
 {
   starttime = millis();
 
@@ -198,7 +208,7 @@ void getDust()
   Serial.println(ppmv10);
   Serial.print("PPMV25 : ");
   Serial.println(ppmv25);
-}
+}*/
 
 /*
 bool setTime(const char *str)
@@ -347,6 +357,30 @@ void start_SD()
   }
 }*/
 
+void getEval()
+{
+   Serial.println(eval); 
+   if(eval>600 && eval<3000)
+   {
+      analogWrite(GREENPIN, 255);
+      analogWrite(BLUEPIN, 0);
+      analogWrite(REDPIN, 0);
+   }
+    if((eval<600 && eval>248) || (eval>3000 && eval<5086))
+   {
+      analogWrite(GREENPIN, 255);
+      analogWrite(BLUEPIN, 0);
+      analogWrite(REDPIN, 255);
+   }
+   if(eval<248 || eval>5086)
+   {
+      analogWrite(GREENPIN, 0);
+      analogWrite(BLUEPIN, 0);
+      analogWrite(REDPIN, 255);
+   }
+   eval = 0;
+}
+
 void setup()
 {
   // Debug console
@@ -372,16 +406,21 @@ void setup()
   start_bh1750();
   //delay(1000);
   start_bme280();
-  pinMode(DUST_SENSOR_DIGITAL_PIN_PM10,INPUT);
-  pinMode(DUST_SENSOR_DIGITAL_PIN_PM25,INPUT);
+  //pinMode(DUST_SENSOR_DIGITAL_PIN_PM10,INPUT);
+  //pinMode(DUST_SENSOR_DIGITAL_PIN_PM25,INPUT);
+  // LED strip light pin declaration
+  pinMode(REDPIN, OUTPUT);
+  pinMode(GREENPIN, OUTPUT);
+  pinMode(BLUEPIN, OUTPUT);
 
 //timer.setInterval(1100L, CheckConnection);
 lux_timer.setInterval(2000L, getLux);
 co2_timer.setInterval(2000L, getCO2);
 temp_timer.setInterval(2000L, getTemp);
-dust_timer.setInterval(2000L, getDust);
+//dust_timer.setInterval(2000L, getDust);
 hum_timer.setInterval(2000L, getHum);
 pres_timer.setInterval(2000L, getPres);
+eval_calc.setInterval(4000L, getEval); 
 }
 
 void loop()
@@ -391,8 +430,11 @@ void loop()
   lux_timer.run();
   co2_timer.run();
   temp_timer.run();
-  dust_timer.run();
+  //dust_timer.run();
   hum_timer.run();
+  eval_calc.run();
   pres_timer.run();
-   
+  
+  //analogWrite(REDPIN, 255);
+ 
 }
